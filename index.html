@@ -27,7 +27,7 @@ const SITE_CONFIG = {
 
   // Tier 1 — Verified Buyer: homeowner picks a price range you offer.
   tier1: {
-    active: true,
+    active: false,
     packages: [
       // priceLabel/price is what the homeowner sees and what feeds the ROI
       // maths. whatItPowers is shown under the option. systemSize is optional
@@ -47,9 +47,10 @@ const SITE_CONFIG = {
   // computes the required system size and auto-matches it to a package
   // below. Every package here MUST include a kva number.
   tier2: {
-    active: false,
+    active: true,
     packages: [
-      { name: "Starter 3.5kVA",    kva: 3.5, price: 1800000, whatItPowers: "Lights, fans, fridge, TV" },
+      { name: "power station 1.5kVA",    kva: 1.5, price: 800000, whatItPowers: "Lights, laptop, phone, small fan" },
+      { name: "Starter 3.5kVA",    kva: 3.5, price: 1800000, whatItPowers: "power station + Lights, fans, fridge, TV" },
       { name: "Family 5kVA",       kva: 5,   price: 2600000, whatItPowers: "Starter + AC unit" },
       { name: "Full House 7.5kVA", kva: 7.5, price: 3800000, whatItPowers: "Family + AC unit(s)" },
       { name: "Large Home 10kVA",  kva: 10,  price: 5200000, whatItPowers: "Full house, multiple AC units" },
