@@ -1,0 +1,152 @@
+--- 8gate-original/index.html	2026-08-04 09:35:15.000000000 +0000
++++ 8gate-src/index.html	2026-08-25 11:38:35.836909101 +0000
+@@ -294,6 +294,14 @@
+ .field-error{font-size:12.5px;color:var(--negative);margin:-10px 0 12px;display:none;font-weight:600;}
+ .field-error.show{display:block;}
+ 
++.spend-input-row{display:flex;align-items:center;gap:0;background:var(--wash);border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;transition:border-color 0.2s;}
++.spend-input-row:focus-within{border-color:var(--blue);background:#fff;}
++.spend-input-row.spend-error{border-color:var(--negative);}
++.spend-prefix{padding:0 0 0 16px;font-size:16px;font-weight:700;color:var(--muted);}
++.spend-input.text-input{border:none;background:transparent;margin-bottom:0;padding:15px 8px;min-height:52px;flex:1;min-width:0;}
++.spend-input.text-input:focus{outline:none;}
++.spend-suffix{padding:0 16px 0 4px;font-size:13px;color:var(--muted);white-space:nowrap;}
++
+ .input-label{
+   font-size:13px;font-weight:700;color:var(--navy);
+   margin-bottom:8px;display:block;
+@@ -591,33 +599,13 @@
+ <div class="q-card" id="q1">
+   <div class="q-num-row"><div class="q-num">Question 1 of 9</div><div class="q-gate" id="gate-q1"></div></div>
+   <div class="q-text">Roughly how much do you spend monthly on electricity and generator fuel combined?</div>
+-  <div class="q-hint">This helps us calculate whether solar makes financial sense for your home. Be as honest as possible.</div>
+-  <div class="options" id="q1-opts">
+-    <label class="option" data-val="under20k" data-nepa="5000" data-fuel="5000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">Under ₦20,000 / month</div><div class="option-sub">e.g. minimal generator use, low NEPA bills</div></div>
+-    </label>
+-    <label class="option" data-val="20k-30k" data-nepa="10000" data-fuel="15000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">₦20,000 – ₦30,000 / month</div></div>
+-    </label>
+-    <label class="option" data-val="30k-50k" data-nepa="15000" data-fuel="25000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">₦30,000 – ₦50,000 / month</div></div>
+-    </label>
+-    <label class="option" data-val="50k-80k" data-nepa="25000" data-fuel="40000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">₦50,000 – ₦80,000 / month</div></div>
+-    </label>
+-    <label class="option" data-val="80k-120k" data-nepa="40000" data-fuel="65000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">₦80,000 – ₦120,000 / month</div></div>
+-    </label>
+-    <label class="option" data-val="over120k" data-nepa="60000" data-fuel="90000">
+-      <div class="option-radio"></div>
+-      <div><div class="option-text">Over ₦120,000 / month</div><div class="option-sub">High energy user — solar ROI is fastest here</div></div>
+-    </label>
++  <div class="q-hint">This helps us calculate whether solar makes financial sense for your home. Type your best real number — the more accurate it is, the more accurate your savings estimate will be.</div>
++  <div class="spend-input-row">
++    <span class="spend-prefix">₦</span>
++    <input type="number" inputmode="numeric" id="q1-spend-input" class="text-input spend-input" placeholder="e.g. 45000" min="0">
++    <span class="spend-suffix">/ month</span>
+   </div>
++  <div class="field-error" id="q1-spend-error">Please enter a number.</div>
+   <button class="next-btn" id="q1-next" disabled onclick="nextQ1()">Continue <span>→</span></button>
+ </div>
+ 
+@@ -1029,6 +1017,7 @@
+   buildPackageOptions();
+   bindGuideLinks();
+   wireStaticOptionCards();
++  wireSpendInput();
+ 
+   ['firstName','whatsapp','location'].forEach(id => {
+     document.getElementById(id).addEventListener('input', checkQ9);
+@@ -1220,7 +1209,7 @@
+ // ══════════════════════════════════════════════════════
+ function wireStaticOptionCards(){
+   document.querySelectorAll('.q-card').forEach(card => {
+-    if (card.id === 'q2' || card.id === 'q5') return; // built dynamically above
++    if (card.id === 'q1' || card.id === 'q2' || card.id === 'q5') return; // q1 is a typed field, q2/q5 built dynamically above
+     card.querySelectorAll('.option').forEach(opt => {
+       opt.addEventListener('click', () => {
+         if (card.id === 'q6') { handleHomeCheck(card, opt); return; }
+@@ -1239,6 +1228,57 @@
+   });
+ }
+ 
++// ══════════════════════════════════════════════════════
++// Q1 — TYPED MONTHLY SPEND FIELD
++// Real number instead of a band select, so the ROI result (payback
++// period, 20-year savings, etc.) is calculated from what the homeowner
++// actually told us rather than a band midpoint.
++// ══════════════════════════════════════════════════════
++const SPEND_MIN = 0;
++const SPEND_MAX = 2000000; // sanity ceiling — catches fat-finger typos (extra zero, etc.)
++
++function wireSpendInput(){
++  const input = document.getElementById('q1-spend-input');
++  const row = input.closest('.spend-input-row');
++  const error = document.getElementById('q1-spend-error');
++  const nextBtn = document.getElementById('q1-next');
++
++  function validate(showError){
++    const raw = input.value.trim();
++    if (raw === '') {
++      if (showError) { error.textContent = 'Please enter your monthly spend.'; error.classList.add('show'); row.classList.add('spend-error'); }
++      nextBtn.disabled = true;
++      return null;
++    }
++    const val = Number(raw);
++    if (!Number.isFinite(val) || /[^0-9.]/.test(raw)) {
++      if (showError) { error.textContent = 'Numbers only, please — no letters or symbols.'; error.classList.add('show'); row.classList.add('spend-error'); }
++      nextBtn.disabled = true;
++      return null;
++    }
++    if (val < SPEND_MIN) {
++      if (showError) { error.textContent = "That can't be negative."; error.classList.add('show'); row.classList.add('spend-error'); }
++      nextBtn.disabled = true;
++      return null;
++    }
++    if (val > SPEND_MAX) {
++      if (showError) { error.textContent = 'That seems too high — check the number and try again.'; error.classList.add('show'); row.classList.add('spend-error'); }
++      nextBtn.disabled = true;
++      return null;
++    }
++    error.classList.remove('show');
++    row.classList.remove('spend-error');
++    nextBtn.disabled = false;
++    return val;
++  }
++
++  input.addEventListener('input', () => {
++    const val = validate(false); // live: only clear errors, don't nag while typing
++    state.answers.q1 = val !== null ? { val: val, spend: val } : null;
++  });
++  input.addEventListener('blur', () => { validate(true); });
++}
++
+ function handleHomeCheck(card, opt){
+   if (opt.dataset.val === 'none') {
+     card.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+@@ -1289,7 +1329,7 @@
+   const ans = state.answers.q1;
+   if (!ans) return;
+   trackQuestionAnswered('q1', ans.val);
+-  if (ans.val === 'under20k' || ans.val === '20k-30k') { trackDisqualification('dq-spend','q1',ans.val); showDQ('dq-spend'); return; }
++  if (ans.spend < 30000) { trackDisqualification('dq-spend','q1',ans.val); showDQ('dq-spend'); return; }
+   showCard('q2');
+ }
+ 
+@@ -1531,9 +1571,7 @@
+ 
+   const spendAns = state.answers.q1;
+   const pkgAns = state.answers.q5;
+-  const monthlyNepa = parseInt(spendAns?.nepa || 15000);
+-  const monthlyFuel = parseInt(spendAns?.fuel || 25000);
+-  const monthlyTotal = monthlyNepa + monthlyFuel;
++  const monthlyTotal = parseInt(spendAns?.spend || 40000);
+   const annualCost = monthlyTotal * 12;
+   const systemCost = parseInt(pkgAns?.cost || 2000000);
+   const batteryLife = 12;
