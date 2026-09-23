@@ -1937,7 +1937,7 @@ function trackUnqualifiedWhatsApp(dqId, reason){
 // whose funds were still building in September may be ready in December,
 // and a permanent lock burns a real future buyer.
 // ══════════════════════════════════════════════════════
-const LOCK_DAYS = 7;
+const LOCK_DAYS = 0;
 
 function lockKey(){
   return 'solar_gate_lock_v1__' + (SITE_CONFIG.installerId || slugify(SITE_CONFIG.installer.businessName));
